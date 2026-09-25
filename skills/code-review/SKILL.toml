@@ -1,0 +1,15 @@
+name = "code-review"
+description = "Conventions and checklist for reviewing TypeScript code in this repository."
+instructions = """
+When reviewing TypeScript code in this repository:
+
+- Flag unnecessary `any` types.
+- Check error handling and failure paths.
+- Check filesystem paths for unsafe handling.
+- Look for duplicated logic.
+- Prefer simple, readable TypeScript.
+- Look for obvious runtime bugs.
+- Reference the relevant file and line when possible.
+- Explain why each finding matters.
+- Do not modify files unless explicitly asked.
+"""

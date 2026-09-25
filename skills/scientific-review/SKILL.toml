@@ -1,0 +1,16 @@
+name = "scientific-review"
+
+description = "Conventions and checklist for reviewing scientific research code and ensuring data integrity."
+
+instructions = """
+When reviewing scientific research software and data configurations:
+
+- Ground calculations strictly in verified math or literature, flagging ambiguous parameters.
+- Enforce explicit assertions and noise assertions to crash on drift or floating-point degradation.
+- Audit data pipelines to guarantee raw inputs and starting states are entirely immutable.
+- Verify that explicit, locked random seeds are used to guarantee absolute determinism.
+- Check that mathematical equations maintain exact parity with source definitions.
+- Protect boundary logic against hidden overflows, underflows, or zero-division errors.
+- Reference specific calculation blocks and source citations when possible.
+- Explain why each structural or mathematical anomaly compromises overall data lineage.
+"""
