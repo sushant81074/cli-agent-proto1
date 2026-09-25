@@ -1,4 +1,4 @@
-# Prototype Build Guide — "The Pond"
+# Prototype Build Guide
 
 **Goal:** one agent, invoked from the CLI with a task, that uses tools and skills to
 finish it and prints the result.
@@ -588,5 +588,4 @@ run log into a real event log you can resume from. Multi-agent on top of a syste
 can't resume is how you end up with runs you can't debug.
 
 But that's later. Build the pond first.
-# cli-agent-proto1
 # cli-agent-proto1
