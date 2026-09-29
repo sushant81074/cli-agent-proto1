@@ -13,7 +13,7 @@ import { ShellExec } from '../tools/shell';
 import { OpenSkill } from '../tools/skill';
 import { Logger } from '../utils/logger';
 import { ExecutionMemory } from '../runtime/executionMemory';
-import { AgentDefination } from '../runtime/agent';
+import { AgentDefinition } from '../runtime/agent';
 import type { TRunOutcome } from '../runtime';
 
 config({ path: ".env" });
@@ -79,7 +79,7 @@ export class CliAgent {
         const memory = new ExecutionMemory(join(process.cwd(), "memory"));
 
         // The agent file is loaded first because the config falls back to its model.
-        const agent = new AgentDefination(join(process.cwd(), "agents"));
+        const agent = new AgentDefinition(join(process.cwd(), "agents"));
         await agent.load();
         const agentConfig = loader.agentConfig(agent);
         console.log(`model: ${agentConfig.model} (from ${agentConfig.modelSource}) · permissions: ${agentConfig.permissionMode}`);

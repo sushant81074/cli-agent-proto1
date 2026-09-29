@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { parse } from 'smol-toml';
 import type { IAgentDefinition } from ".";
 
-export class AgentDefination implements IAgentDefinition {
+export class AgentDefinition implements IAgentDefinition {
     name!: string;
     model!: string;
     description!: string;
