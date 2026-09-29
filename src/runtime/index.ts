@@ -1,10 +1,26 @@
+import type { TAgentConfig } from "../configs/loadConfig";
 import type { IToolResult } from "../domains/tool";
+import type { IModelMessage } from "../providers";
+import type { ToolSet } from "../tools/toolSet";
+
+/** Why a run stopped. "failed" isn't here: a failed run throws instead of finishing. */
+export type TRunOutcome =
+    | "completed"
+    | "max_iterations"
+    | "budget_exceeded"
+    | "cancelled";
+
+export interface IRunUsage {
+    inputTokens: number;
+    outputTokens: number;
+    costUsd: number;
+}
 
 export type TAgentEvent =
     | { type: "text"; delta: string; }
     | { type: "tool_start"; toolName: string; }
     | { type: "tool_result"; toolName: string; result: IToolResult; }
-    | { type: "done"; };
+    | { type: "done"; outcome: TRunOutcome; iterations: number; usage: IRunUsage; };
 
 
 export interface IAgentDefinition {

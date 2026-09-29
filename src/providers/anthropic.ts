@@ -13,14 +13,16 @@ export class AnthropicProvider implements Provider {
         const stream = this.client.messages.stream({
             model: request.model,
             max_tokens: 4096,
-            system: request.system,
+            system: request.system || undefined,
             messages: request.messages.map(m => this.mapMessage(m)),
             tools: request.tools.map(t => this.mapTool(t))
-        });
+        }, { signal: request.signal });
 
         let toolId: string | undefined;
         let toolName: string | undefined;
         let toolInput = "";
+        // Anthropic reports output_tokens as a running total, so only emit what's new each time.
+        let reportedOutputTokens = 0;
 
         for await (const event of stream) {
             switch (event.type) {
@@ -63,6 +65,7 @@ export class AnthropicProvider implements Provider {
 
                 } break;
                 case "message_start": {
+                    reportedOutputTokens = event.message.usage.output_tokens;
                     yield {
                         type: "usage",
                         inputTokens: event.message.usage.input_tokens,
@@ -71,10 +74,12 @@ export class AnthropicProvider implements Provider {
                 } break;
                 case "message_delta": {
                     if (event.usage) {
+                        const newOutputTokens = event.usage.output_tokens - reportedOutputTokens;
+                        reportedOutputTokens = event.usage.output_tokens;
                         yield {
                             type: "usage",
                             inputTokens: 0,
-                            outputTokens: event.usage.output_tokens
+                            outputTokens: newOutputTokens
                         };
                     }
                     if (event.delta.stop_reason) {

@@ -9,10 +9,11 @@ dist
 # code coverage
 coverage
 *.lcov
-*.jsonl
-*.json
-# logs
+
+# agent run data: run logs and execution checkpoints
+# (was "*.json" and "*.jsonl", which also ignored package.json and tsconfig.json)
 logs
+memory
 _.log
 report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 

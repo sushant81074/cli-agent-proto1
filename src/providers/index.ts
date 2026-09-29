@@ -1,3 +1,4 @@
+import type { OpenRouter } from "@openrouter/sdk";
 
 export type IContentBlock =
     | { type: "text"; text: string; }
@@ -12,7 +13,8 @@ export type TStopReason =
 export type IProviderEvent =
     | { type: 'text'; delta: string; }
     | { type: 'tool_use'; id: string; name: string; input: unknown; }
-    | { type: 'usage'; inputTokens: number; outputTokens: number; }
+    // costUsd is set when the provider reports what the call actually cost (OpenRouter does).
+    | { type: 'usage'; inputTokens: number; outputTokens: number; costUsd?: number; }
     | { type: 'stop'; reason: TStopReason; };
 
 export interface IModelMessage {
@@ -20,10 +22,13 @@ export interface IModelMessage {
     content: string | IContentBlock[];
 }
 
+/** A plain JSON Schema object. Providers never see Zod: tools convert their schema before it gets here. */
+export type TJsonSchema = Record<string, unknown>;
+
 export interface IModelTool {
     name: string;
     description: string;
-    inputSchema: unknown;
+    inputSchema: TJsonSchema;
 }
 
 export interface ICompleteRequest {
@@ -79,5 +84,6 @@ export type TChunk = {
     usage?: {
         promptTokens?: number;
         completionTokens?: number;
+        cost?: number | null;
     };
 };

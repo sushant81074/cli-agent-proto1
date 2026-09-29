@@ -3,7 +3,7 @@ import type { ISkillLoader } from "../configs/skill";
 import type { IToolContext, IToolDefinition, IToolResult, TToolEffect } from "../domains/tool";
 
 export const openSkillInputSchema = z.object({
-    name: z.string().min(1).describe("The literal shell command to execute within the workspace root. Example: 'npm test', 'git status'")
+    name: z.string().min(1).describe("Name of the skill to load, exactly as listed under AVAILABLE SKILLS in the system prompt. Example: 'code-review'")
 });
 
 type TOpenSkillInput = z.infer<typeof openSkillInputSchema>;

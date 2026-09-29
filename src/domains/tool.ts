@@ -4,6 +4,8 @@ export type TToolEffect = "read" | "write" | "exec" | "meta";
 
 export interface IToolContext {
     workspaceRoot: string;
+    /** Fires when the user cancels the run (Ctrl-C). Long-running tools must stop when it does. */
+    signal: AbortSignal;
 }
 
 export type TResolvedPathResult =

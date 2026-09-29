@@ -1,6 +1,5 @@
 import { OpenRouter } from "@openrouter/sdk";
 import type { ICompleteRequest, IContentBlock, IModelMessage, IModelTool, IProviderEvent, Provider, TChatMessages, TChatRequest, TChunk, TStopReason, TToolCallAccumulator } from ".";
-import { z } from "zod";
 
 export class OpenRouterProvider implements Provider {
     private readonly client: OpenRouter;
@@ -24,7 +23,7 @@ export class OpenRouterProvider implements Provider {
                 maxTokens: 4096,
                 stream: true,
             },
-        }) as unknown as AsyncIterable<unknown>;
+        }, { signal: request.signal }) as unknown as AsyncIterable<unknown>;
 
         const toolCalls = new Map<number, TToolCallAccumulator>();
 
@@ -40,11 +39,7 @@ export class OpenRouterProvider implements Provider {
                 if (typedChunk.usage && !usageEmitted) {
                     usageEmitted = true;
 
-                    yield {
-                        type: "usage",
-                        inputTokens: typedChunk.usage.promptTokens ?? 0,
-                        outputTokens: typedChunk.usage.completionTokens ?? 0,
-                    };
+                    yield this.toUsageEvent(typedChunk.usage);
                 }
                 continue;
             }
@@ -65,11 +60,7 @@ export class OpenRouterProvider implements Provider {
             if (typedChunk.usage && !usageEmitted) {
                 usageEmitted = true;
 
-                yield {
-                    type: "usage",
-                    inputTokens: typedChunk.usage.promptTokens ?? 0,
-                    outputTokens: typedChunk.usage.completionTokens ?? 0,
-                };
+                yield this.toUsageEvent(typedChunk.usage);
             }
 
             if (choice.finishReason && !stopReason) {
@@ -159,11 +150,20 @@ export class OpenRouterProvider implements Provider {
             function: {
                 name: tool.name,
                 description: tool.description,
-                parameters: z.toJSONSchema(tool.inputSchema as z.ZodType),
+                parameters: tool.inputSchema,
             },
         })) as TChatRequest["tools"];
     }
 
+    private toUsageEvent(usage: NonNullable<TChunk["usage"]>): IProviderEvent {
+        return {
+            type: "usage",
+            inputTokens: usage.promptTokens ?? 0,
+            outputTokens: usage.completionTokens ?? 0,
+            // OpenRouter includes what the call actually cost, so the budget doesn't need a price table.
+            costUsd: usage.cost ?? undefined,
+        };
+    }
 
     private accumulateToolCall(
         toolCalls: Map<number, TToolCallAccumulator>,

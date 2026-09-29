@@ -14,8 +14,17 @@ import { OpenSkill } from '../tools/skill';
 import { Logger } from '../utils/logger';
 import { ExecutionMemory } from '../runtime/executionMemory';
 import { AgentDefination } from '../runtime/agent';
+import type { TRunOutcome } from '../runtime';
 
 config({ path: ".env" });
+
+// From the build guide: 0 done, 1 failed, 4 over budget, 130 interrupted.
+const EXIT_CODES: Record<TRunOutcome, number> = {
+    completed: 0,
+    max_iterations: 1,
+    budget_exceeded: 4,
+    cancelled: 130,
+};
 
 export class CliAgent {
     constructor() {
@@ -69,26 +78,50 @@ export class CliAgent {
 
         const memory = new ExecutionMemory(join(process.cwd(), "memory"));
 
-        const agentConfig = loader.agentConfig();
+        // The agent file is loaded first because the config falls back to its model.
         const agent = new AgentDefination(join(process.cwd(), "agents"));
         await agent.load();
+        const agentConfig = loader.agentConfig(agent);
+        console.log(`model: ${agentConfig.model} (from ${agentConfig.modelSource}) · permissions: ${agentConfig.permissionMode}`);
 
         const execution = new AgentExecution(executionId ?? crypto.randomUUID(), task, agentConfig, toolset, availableSkills, agent);
         const provider = new OpenRouterProvider();
-        const permissionPolicy = new PermissionPolicy("standard");
+        // Before, this was hardcoded to "standard" and permissionMode from .env was ignored.
+        const permissionPolicy = new PermissionPolicy(agentConfig.permissionMode);
         const permissionPrompter = new CliPermissionPrompter();
 
         const agentloop = new AgentLoop(provider, execution, { workspaceRoot: process.cwd() }, permissionPolicy, permissionPrompter, memory, logger);
-        const abort = new AbortController();
 
-        for await (const event of agentloop.run(abort.signal)) {
-            switch (event.type) {
-                case "text": process.stdout.write(event.delta); break;
-                case "tool_start": console.log(`\n[tool] ${event.toolName}`); break;
-                case "tool_result": console.log(`[tool result] ${event.result.ok ? "success" : event.result.error}`); break;
-                case "done": console.log("\n[done]"); break;
-                default: break;
+        // Before, this controller existed but nothing ever called abort(), so Ctrl-C just killed the
+        // process mid-write. First Ctrl-C cancels cleanly (the checkpoint is saved); a second one force-quits.
+        const abort = new AbortController();
+        const onSigint = () => {
+            if (abort.signal.aborted) {
+                console.log("\nForce quit.");
+                process.exit(130);
             }
+            console.log("\nCancelling... (press Ctrl-C again to force quit)");
+            abort.abort();
+        };
+        process.on("SIGINT", onSigint);
+
+        try {
+            for await (const event of agentloop.run(abort.signal)) {
+                switch (event.type) {
+                    case "text": process.stdout.write(event.delta); break;
+                    case "tool_start": console.log(`\n[tool] ${event.toolName}`); break;
+                    case "tool_result": console.log(`[tool result] ${event.result.ok ? "success" : event.result.error}`); break;
+                    case "done": {
+                        const { outcome, iterations, usage } = event;
+                        const tokens = usage.inputTokens + usage.outputTokens;
+                        console.log(`\n[${outcome}] ${iterations} iterations · ${tokens} tokens · $${usage.costUsd.toFixed(4)} · execution ${execution.id}`);
+                        process.exitCode = EXIT_CODES[outcome];
+                    } break;
+                    default: break;
+                }
+            }
+        } finally {
+            process.off("SIGINT", onSigint);
         }
 
     }

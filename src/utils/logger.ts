@@ -24,10 +24,11 @@ export class Logger implements IRunLogger {
             timestamp: new Date().toISOString()
         });
     }
-    async done() {
+    async done(summary: Record<string, unknown>) {
         return this.write({
             type: "run_finished",
             runId: this.runId,
+            ...summary,
             timestamp: new Date().toISOString()
         });
     }

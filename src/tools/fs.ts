@@ -79,29 +79,52 @@ export class FsRead implements IToolDefinition<TReadInput> {
     }
 }
 
+// Directories no agent task needs to walk. node_modules alone turned one glob into 700 KB of output.
+const IGNORED_DIRS = new Set(["node_modules", ".git"]);
+const MAX_GLOB_MATCHES = 200;
+
 export class FsGlob implements IToolDefinition<TGlobInput> {
     name: string;
     description: string;
     schema: z.ZodType<TGlobInput>;
     effect: TToolEffect;
+    private fileResolver: FileResolver;
 
     constructor() {
         this.name = "fs_glob";
-        this.description = "Find files inside the workspace using a glob pattern. Use this when you need to discover files or directories before reading specific files.";
+        this.description = "Find files inside the workspace using a glob pattern. Use this when you need to discover files or directories before reading specific files. node_modules and .git are skipped.";
         this.schema = globInputSchema;
         this.effect = "read";
+        this.fileResolver = new FileResolver();
     }
+
+    isInIgnoredDir(path: string): boolean {
+        return path.split(/[\\/]/).some(segment => IGNORED_DIRS.has(segment));
+    }
+
 
     async handler(input: TGlobInput, context: IToolContext): Promise<IToolResult> {
         try {
+            // The same jail as fs_read: without it, "../*" or "/Users/*/.ssh/*" listed files outside the workspace.
+            if (nodepath.isAbsolute(input.pattern) || input.pattern.split(/[\\/]/).includes(".."))
+                return { ok: false, error: "The pattern must be relative to the workspace and must not contain '..'.", content: "" };
+
             const matches: string[] = [];
-            for await (const match of glob(input.pattern, { cwd: context.workspaceRoot })) {
+            const exclude = (path: string) => this.isInIgnoredDir(path);
+            for await (const match of glob(input.pattern, { cwd: context.workspaceRoot, exclude })) {
+                // Check every match too: brace patterns like "{..,src}/*" get past the check above,
+                // and `exclude` has behaved differently across Node versions.
+                if (this.isInIgnoredDir(match)) continue;
+                if (!this.fileResolver.resolveFilePath(context.workspaceRoot, match).ok) continue;
                 matches.push(match);
             }
-            return {
-                ok: true,
-                content: matches.join("\n")
-            };
+
+            if (matches.length === 0) return { ok: true, content: `No files matched "${input.pattern}".` };
+
+            const shown = matches.slice(0, MAX_GLOB_MATCHES);
+            const hidden = matches.length - shown.length;
+            const note = hidden > 0 ? `\n\n...[${hidden} more matches not shown; use a narrower pattern]` : "";
+            return { ok: true, content: this.fileResolver.truncateOutput(shown.join("\n") + note) };
         } catch (error) {
             return { ok: false, error: error instanceof Error ? error?.message : "", content: "" };
         }
@@ -137,9 +160,7 @@ export class FsWrite implements IToolDefinition<TWriteInput> {
                         error: `File protection fault: '${input.filePath}' already exists. Set 'overwrite: true' if changes are intended.`,
                         content: ""
                     };
-                } catch {
-                    // Safe pathway: File does not exist
-                }
+                } catch {/*Safe pathway: File does not exist*/ }
             }
 
             const parentDir = nodepath.dirname(path.path);
